@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use or discuss this research architecture, please cite it as below."
+title: "Dual-Lobe Interdependent Agent Architecture: An Experimental Cognitive Architecture for Reliable Autonomous Agents"
+type: software
+authors:
+  - family-names: Alsawy
+    given-names: Anas
+version: 1.1.0
+date-released: 2026-08-24
+repository-code: "https://github.com/anasalsawy/dialogue-os/tree/main/research/dual-lobe"
+url: "https://github.com/anasalsawy/dialogue-os/tree/main/research/dual-lobe"
+license: "CC-BY-NC-SA-4.0"
+keywords:
+  - AI agents
+  - multi-agent systems
+  - agent reliability
+  - cognitive architecture
+  - human-in-the-loop
+  - verification
+  - autonomous agents
+abstract: >-
+  An experimental architecture that splits one task identity across two
+  functionally specialized model processes, Strategist and Executor, and
+  enforces cooperation through mutually exclusive tool ownership, permission
+  locks, independent verification, typed communication, durable checkpoints,
+  and an append-only evidence ledger. Optional modules borrow functional
+  inspiration from neuroscience while making no claim of biological fidelity
+  or machine consciousness.
