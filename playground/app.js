@@ -207,4 +207,49 @@
   }
   function renderComparison(r) {
     const results=r?.results || {};
-    for (const [name,item] of Object.en
+    for (const [name,item] of Object.entries(results)) {
+      const lane=laneFor(name); const pill=lane.querySelector('.pill');
+      if (item.error) { pill.textContent='error'; pill.className='pill bad'; lane.querySelector('.lane-final').textContent=item.error; }
+      else { pill.textContent=`${item.judge?.overall ?? '—'} / 10`; pill.className='pill good'; lane.querySelector('.lane-final').innerHTML=`<div class="hint">${fmtNum(item.telemetry?.calls)} calls · ${fmtMs(item.telemetry?.elapsed_ms)} · ${fmtNum(item.telemetry?.total_tokens)} tokens</div>`; }
+    }
+    const ranking=r?.leaderboard || Object.keys(results);
+    $('compareLeaderboard').classList.remove('empty-state');
+    $('compareLeaderboard').innerHTML=`<table class="leader-table"><thead><tr><th>Rank</th><th>Architecture</th><th>Judge</th><th>Calls</th><th>Latency</th><th>Tokens</th></tr></thead><tbody>${ranking.map((name,i)=>{const x=results[name]||{};return `<tr><td class="rank">#${i+1}</td><td title="${esc(architectureDescription(name))}">${esc(name)}</td><td>${esc(x.judge?.overall ?? '—')}</td><td>${fmtNum(x.telemetry?.calls)}</td><td>${fmtMs(x.telemetry?.elapsed_ms)}</td><td>${fmtNum(x.telemetry?.total_tokens)}</td></tr>`}).join('')}</tbody></table>`;
+  }
+
+  async function runCompare() {
+    clearError('compareError'); const task=$('compareTask').value.trim(); const architectures=selectedChecks('compareArchitectureChecks');
+    if (!task) return showError('compareError',new Error('Enter a comparison task.')); if (architectures.length<2) return showError('compareError',new Error('Select at least two architectures.'));
+    $('compareLanes').className='lane-grid empty-state'; $('compareLanes').textContent='Starting comparison…'; $('compareLeaderboard').className='empty-state'; $('compareLeaderboard').textContent='Waiting for results…';
+    $('compareBtn').disabled=true; $('stopCompareBtn').disabled=false; state.compareAbort=new AbortController();
+    try { await postSSE('/v1/dual-lobe/playground/compare',{task,messages:[],architectures,judge:true,stream:true},state.compareAbort.signal,applyCompareEvent); }
+    catch(e){if(e.name!=='AbortError')showError('compareError',e)}finally{$('compareBtn').disabled=false;$('stopCompareBtn').disabled=true;state.compareAbort=null}
+  }
+
+  function benchmarkDefault() {
+    return JSON.stringify([
+      {id:'debug-1',task:'Diagnose a malformed tool-call history without guessing. Identify what evidence would distinguish producer corruption from proxy corruption.',messages:[]},
+      {id:'evidence-1',task:'An agent says it deployed successfully. Decide whether that claim is actually proven from the supplied evidence and state what remains missing.',messages:[{role:'tool',content:'Build completed successfully.'}]},
+      {id:'ambiguity-1',task:'Plan a safe implementation for an underspecified feature. Do not invent missing product constraints; surface the uncertainty and still make useful progress.',messages:[]},
+      {id:'easy-1',task:'Explain what an HTTP 422 response means in two concise paragraphs.',messages:[]}
+    ], null, 2);
+  }
+  function applyBenchmarkEvent(e) {
+    if (e.type==='benchmark_result') return renderBenchmark(e.result);
+    const wrap=$('benchmarkLive'); if(wrap.classList.contains('empty-state')){wrap.classList.remove('empty-state');wrap.textContent='';}
+    if(['participant_move','completion_proposed','completion_confirmed','run_end','circuit_breaker'].includes(e.type)){
+      const row=document.createElement('div'); row.className=`event-card ${actorClass(e.actor)}`; row.innerHTML=`<div class="event-top"><span class="actor">${esc(e.case_id||'case')} · ${esc(e.variant||'')}</span><span class="event-kind">${esc(e.type)}</span></div><div class="message">${esc(eventMessage(e)).slice(0,900)}</div>`; wrap.appendChild(row);wrap.scrollTop=wrap.scrollHeight;
+      $('benchmarkProgress').textContent=`${esc(e.case_id||'running')} · ${esc(e.variant||'')}`;
+    }
+  }
+  function renderBenchmark(r) {
+    const aggregate=r?.aggregate||{}; const ranking=r?.leaderboard||Object.keys(aggregate);
+    $('benchmarkProgress').textContent='complete'; $('benchmarkProgress').className='pill good'; $('benchmarkLeaderboard').classList.remove('empty-state');
+    $('benchmarkLeaderboard').innerHTML=`<table class="leader-table"><thead><tr><th>Rank</th><th>Architecture</th><th>Judge mean</th><th>Error</th><th>Calls</th><th>Latency</th><th>Tokens</th><th>Evidence</th></tr></thead><tbody>${ranking.map((name,i)=>{const x=aggregate[name]||{};return `<tr><td class="rank">#${i+1}</td><td>${esc(name)}</td><td>${x.judge_overall_mean==null?'—':Number(x.judge_overall_mean).toFixed(2)}</td><td>${x.error_rate==null?'—':(100*x.error_rate).toFixed(1)+'%'}</td><td>${x.mean_calls==null?'—':Number(x.mean_calls).toFixed(1)}</td><td>${fmtMs(x.mean_latency_ms)}</td><td>${x.mean_total_tokens==null?'—':fmtNum(x.mean_total_tokens)}</td><td>${x.dimensions?.evidence_discipline==null?'—':Number(x.dimensions.evidence_discipline).toFixed(2)}</td></tr>`}).join('')}</tbody></table><p class="hint">${esc(r.warning||'')}</p>`;
+  }
+  async function runBenchmark() {
+    clearError('benchmarkError'); let cases; try { cases=JSON.parse($('benchmarkCases').value); if(!Array.isArray(cases)||!cases.length)throw new Error('Cases must be a non-empty JSON array.'); } catch(e){return showError('benchmarkError',e)}
+    const architectures=selectedChecks('benchmarkArchitectureChecks'); if(!architectures.length)return showError('benchmarkError',new Error('Select at least one architecture.'));
+    $('benchmarkLive').className='event-stream empty-state';$('benchmarkLive').textContent='Starting benchmark…';$('benchmarkLeaderboard').className='empty-state';$('benchmarkLeaderboard').textContent='Waiting for aggregate results…';$('benchmarkProgress').textContent='running';$('benchmarkProgress').className='pill neutral';
+    $('benchmarkBtn').disabled=true;$('stopBenchmarkBtn').disabled=false;state.benchmarkAbort=new AbortController();
+    const body={cases,architectures,repeat:num($('benchmar
