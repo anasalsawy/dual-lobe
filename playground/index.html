@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0d12" />
+  <title>Cognitive Architecture Playground</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">DUAL-LOBE LAB</div>
+        <h1 id="appTitle">Cognitive Architecture Playground</h1>
+        <p class="subtitle">Put competing cognitive architectures on the same task and watch them think, recruit specialists, converge, and finish.</p>
+      </div>
+      <div class="status-cluster">
+        <span id="connectionPill" class="pill neutral">Not connected</span>
+        <button id="settingsBtn" class="btn secondary">Connection</button>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Playground mode">
+      <button class="tab active" data-tab="run">Live Run</button>
+      <button class="tab" data-tab="compare">Compare</button>
+      <button class="tab" data-tab="benchmark">Benchmark</button>
+    </nav>
+
+    <main>
+      <section id="panel-run" class="tab-panel active">
+        <div class="layout two-col">
+          <section class="panel control-panel">
+            <div class="section-head">
+              <div><span class="kicker">TASK</span><h2>Run one brain</h2></div>
+              <button id="refreshArchitecturesBtn" class="btn ghost small">Refresh architectures</button>
+            </div>
+            <label class="field-label" for="runTask">Task</label>
+            <textarea id="runTask" class="task-input" rows="9" placeholder="Diagnose this failure, explain the root cause, and propose the safest fix..."></textarea>
+
+            <div class="form-grid">
+              <label class="field"><span>Architecture</span><select id="runArchitecture"></select></label>
+              <label class="field"><span>Judge</span><select id="runJudge"><option value="true">On</option><option value="false">Off</option></select></label>
+            </div>
+
+            <details class="advanced">
+              <summary>Models, evidence & emergency fuses</summary>
+              <div class="advanced-body">
+                <div class="role-grid">
+                  <label class="field"><span>Cortex A</span><input id="runModelA" placeholder="lobe-a" /></label>
+                  <label class="field"><span>Cortex B</span><input id="runModelB" placeholder="lobe-b" /></label>
+                  <label class="field"><span>ACC</span><input id="runModelACC" placeholder="lobe-b" /></label>
+                  <label class="field"><span>Evidence</span><input id="runModelEvidence" placeholder="lobe-b" /></label>
+                  <label class="field"><span>Judge</span><input id="runModelJudge" placeholder="lobe-b" /></label>
+                </div>
+                <label class="field"><span>Source messages / evidence (JSON array)</span><textarea id="runMessages" rows="6" class="mono" placeholder='[{"role":"user","content":"log or source material"}]'></textarea></label>
+                <div class="form-grid">
+                  <label class="field"><span>Emergency max calls</span><input id="runFuseCalls" type="number" min="4" max="200" value="40" /></label>
+                  <label class="field"><span>Emergency wall seconds</span><input id="runFuseSeconds" type="number" min="30" max="1800" value="300" /></label>
+                </div>
+              </div>
+            </details>
+
+            <div class="actions">
+              <button id="runBtn" class="btn primary">Run architecture</button>
+              <button id="stopRunBtn" class="btn danger" disabled>Stop</button>
+              <button id="clearRunBtn" class="btn secondary">Clear</button>
+            </div>
+            <div id="runError" class="error-box hidden"></div>
+          </section>
+
+          <section class="panel live-panel">
+            <div class="section-head">
+              <div><span class="kicker">LIVE COGNITION</span><h2>Brain activity</h2></div>
+              <span id="runTimer" class="mono muted">0.0s</span>
+            </div>
+            <div id="brainMap" class="brain-map" aria-label="Active cognitive regions">
+              <div class="region persistent" data-role="A"><span class="region-name">Cortex A</span><span class="region-state">idle</span></div>
+              <div class="callosum"><span>Corpus Callosum</span></div>
+              <div class="region persistent" data-role="B"><span class="region-name">Cortex B</span><span class="region-state">idle</span></div>
+              <div class="region specialist" data-role="ACC"><span class="region-name">ACC / Salience</span><span class="region-state">asleep</span></div>
+              <div class="region specialist" data-role="EVIDENCE"><span class="region-name">Evidence Cortex</span><span class="region-state">asleep</span></div>
+            </div>
+            <div class="telemetry" id="runTelemetry">
+              <div><span>Calls</span><strong>—</strong></div><div><span>Tokens</span><strong>—</strong></div><div><span>Latency</span><strong>—</strong></div><div><span>Judge</span><strong>—</strong></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="layout transcript-grid">
+          <section class="panel">
+            <div class="section-head"><div><span class="kicker">EVENT LEDGER</span><h2>Live cooperation</h2></div><span id="eventCount" class="pill neutral">0 events</span></div>
+            <div id="runEvents" class="event-stream empty-state">Start a run to watch A, B, ACC, and Evidence cooperate.</div>
+          </section>
+          <section class="panel">
+            <div class="section-head"><div><span class="kicker">OUTPUT</span><h2>Final answer</h2></div></div>
+            <div id="runFinal" class="final-answer empty-state">The converged final answer will appear here.</div>
+            <div id="judgeCard" class="judge-card hidden"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="panel-compare" class="tab-panel">
+        <div class="panel control-panel compact">
+          <div class="section-head"><div><span class="kicker">HEAD-TO-HEAD</span><h2>Same task, different brains</h2></div></div>
+          <textarea id="compareTask" class="task-input" rows="6" placeholder="Give every architecture the exact same task..."></textarea>
+          <div id="compareArchitectureChecks" class="check-grid"></div>
+          <div class="actions"><button id="compareBtn" class="btn primary">Run comparison</button><button id="stopCompareBtn" class="btn danger" disabled>Stop</button></div>
+          <div id="compareError" class="error-box hidden"></div>
+        </div>
+        <section class="panel">
+          <div class="section-head"><div><span class="kicker">RACE VIEW</span><h2>Live architecture lanes</h2></div></div>
+          <div id="compareLanes" class="lane-grid empty-state">Choose architectures and start a comparison.</div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><div><span class="kicker">RESULT</span><h2>Leaderboard</h2></div><span class="muted small-text">Judge score is a screening signal, not truth.</span></div>
+          <div id="compareLeaderboard" class="empty-state">No comparison yet.</div>
+        </section>
+      </section>
+
+      <section id="panel-benchmark" class="tab-panel">
+        <div class="layout two-col">
+          <section class="panel control-panel">
+            <div class="section-head"><div><span class="kicker">BENCHMARK SUITE</span><h2>Stress the architectures</h2></div></div>
+            <label class="field"><span>Cases (JSON)</span><textarea id="benchmarkCases" rows="18" class="mono"></textarea></label>
+            <div id="benchmarkArchitectureChecks" class="check-grid"></div>
+            <div class="form-grid"><label class="field"><span>Repeat</span><input id="benchmarkRepeat" type="number" min="1" max="5" value="1" /></label><label class="field"><span>Judge</span><select id="benchmarkJudge"><option value="true">On</option><option value="false">Off</option></select></label></div>
+            <div class="actions"><button id="benchmarkBtn" class="btn primary">Run benchmark</button><button id="stopBenchmarkBtn" class="btn danger" disabled>Stop</button></div>
+            <div id="benchmarkError" class="error-box hidden"></div>
+          </section>
+          <section class="panel">
+            <div class="section-head"><div><span class="kicker">PROGRESS</span><h2>Current runs</h2></div><span id="benchmarkProgress" class="pill neutral">idle</span></div>
+            <div id="benchmarkLive" class="event-stream empty-state">Benchmark events will appear here.</div>
+          </section>
+        </div>
+        <section class="panel">
+          <div class="section-head"><div><span class="kicker">AGGREGATE</span><h2>Benchmark scoreboard</h2></div></div>
+          <div id="benchmarkLeaderboard" class="empty-state">No benchmark yet.</div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog" class="settings-form">
+      <div class="section-head"><div><span class="kicker">CONNECTION</span><h2>Backend</h2></div><button value="cancel" class="icon-btn" aria-label="Close">×</button></div>
+      <label class="field"><span>API base</span><input id="apiBaseInput" placeholder="/api or https://proxy.example.com" /></label>
+      <label class="field"><span>Bearer token (direct mode only)</span><input id="tokenInput" type="password" autocomplete="off" placeholder="Leave blank when using server proxy" /></label>
+      <p class="hint">For a public site, use the included server proxy and keep the privileged API key on the server. Do not hard-code it into <code>config.js</code>.</p>
+      <div class="actions"><button id="testConnectionBtn" type="button" class="btn secondary">Test</button><button id="saveSettingsBtn" type="button" class="btn primary">Save</button></div>
+      <div id="settingsError" class="error-box hidden"></div>
+    </form>
+  </dialog>
+
+  <script src="./config.js"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
