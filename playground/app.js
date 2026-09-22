@@ -252,4 +252,22 @@
     const architectures=selectedChecks('benchmarkArchitectureChecks'); if(!architectures.length)return showError('benchmarkError',new Error('Select at least one architecture.'));
     $('benchmarkLive').className='event-stream empty-state';$('benchmarkLive').textContent='Starting benchmark…';$('benchmarkLeaderboard').className='empty-state';$('benchmarkLeaderboard').textContent='Waiting for aggregate results…';$('benchmarkProgress').textContent='running';$('benchmarkProgress').className='pill neutral';
     $('benchmarkBtn').disabled=true;$('stopBenchmarkBtn').disabled=false;state.benchmarkAbort=new AbortController();
-    const body={cases,architectures,repeat:num($('benchmar
+    const body={cases,architectures,repeat:num($('benchmarkRepeat').value,1),judge:$('benchmarkJudge').value==='true',role_models:{},fuse_max_calls:40,fuse_wall_seconds:300,stream:true};
+    try{await postSSE('/v1/dual-lobe/playground/benchmark',body,state.benchmarkAbort.signal,applyBenchmarkEvent)}catch(e){if(e.name!=='AbortError')showError('benchmarkError',e)}finally{$('benchmarkBtn').disabled=false;$('stopBenchmarkBtn').disabled=true;state.benchmarkAbort=null}
+  }
+
+  function bindTabs(){document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${btn.dataset.tab}`));}));}
+  function bindSettings(){const d=$('settingsDialog');$('settingsBtn').addEventListener('click',()=>{$('apiBaseInput').value=state.apiBase;$('tokenInput').value=state.token;clearError('settingsError');d.showModal();});$('saveSettingsBtn').addEventListener('click',()=>{state.apiBase=$('apiBaseInput').value.trim()||'/api';state.token=$('tokenInput').value.trim();sessionStorage.setItem('dl_api_base',state.apiBase);sessionStorage.setItem('dl_token',state.token);d.close();loadArchitectures().catch(e=>setConnection(false,e.message));});$('testConnectionBtn').addEventListener('click',async()=>{const oldBase=state.apiBase,oldToken=state.token;state.apiBase=$('apiBaseInput').value.trim()||'/api';state.token=$('tokenInput').value.trim();try{await loadArchitectures();clearError('settingsError')}catch(e){showError('settingsError',e)}finally{state.apiBase=oldBase;state.token=oldToken}});}
+
+  function init() {
+    $('appTitle').textContent = cfg.title || 'Cognitive Architecture Playground';
+    $('benchmarkCases').value = benchmarkDefault();
+    bindTabs(); bindSettings();
+    $('refreshArchitecturesBtn').addEventListener('click',()=>loadArchitectures().catch(e=>setConnection(false,e.message)));
+    $('runBtn').addEventListener('click',runOne); $('stopRunBtn').addEventListener('click',()=>state.runAbort?.abort()); $('clearRunBtn').addEventListener('click',()=>{$('runEvents').className='event-stream empty-state';$('runEvents').textContent='Start a run to watch A, B, ACC, and Evidence cooperate.';$('runFinal').className='final-answer empty-state';$('runFinal').textContent='The converged final answer will appear here.';$('judgeCard').classList.add('hidden');resetBrain();});
+    $('compareBtn').addEventListener('click',runCompare); $('stopCompareBtn').addEventListener('click',()=>state.compareAbort?.abort());
+    $('benchmarkBtn').addEventListener('click',runBenchmark); $('stopBenchmarkBtn').addEventListener('click',()=>state.benchmarkAbort?.abort());
+    loadArchitectures().catch(e=>setConnection(false,e.message));
+  }
+  init();
+})();
