@@ -128,4 +128,83 @@
   }
   function addRunEvent(e) {
     const wrap = $('runEvents');
-    if (wrap.classList.contains('empty-state')) { wrap.classList.remove('empty-state'); wrap.textCo
+    if (wrap.classList.contains('empty-state')) { wrap.classList.remove('empty-state'); wrap.textContent=''; }
+    const actor = e.actor || 'SYSTEM';
+    const card = document.createElement('div');
+    card.className = `event-card ${actorClass(actor)}`;
+    card.innerHTML = `<div class="event-top"><span class="actor">${esc(actor)}</span><span class="event-kind">${esc(e.type || 'event')}</span></div><div class="message">${esc(eventMessage(e))}</div>`;
+    wrap.appendChild(card); wrap.scrollTop = wrap.scrollHeight;
+    $('eventCount').textContent = `${wrap.children.length} events`;
+  }
+
+  function renderJudge(j) {
+    const card = $('judgeCard');
+    if (!j || j.available === false) { card.classList.add('hidden'); return; }
+    const dims = ['overall','task_success','instruction_coverage','evidence_discipline','efficiency'];
+    card.innerHTML = `<div class="section-head"><strong>Independent judge</strong><span class="pill neutral">${esc(j.overall ?? '—')}</span></div><div class="judge-grid">${dims.map(k => `<div><span>${esc(k.replaceAll('_',' '))}</span><strong>${esc(j[k] ?? '—')}</strong></div>`).join('')}</div>${j.rationale ? `<p class="hint">${esc(j.rationale)}</p>`:''}`;
+    card.classList.remove('hidden');
+  }
+
+  function applyRunEvent(e) {
+    if (e.actor) activateRole(e.actor, e.type === 'participant_move' ? 'working' : 'active');
+    if (e.type === 'run_start') resetBrain();
+    if (e.type === 'participant_move') addRunEvent(e);
+    else if (e.type === 'completion_proposed' || e.type === 'completion_confirmed' || e.type === 'completion_reopened' || e.type === 'circuit_breaker') addRunEvent(e);
+    else if (e.type === 'final') { $('runFinal').classList.remove('empty-state'); $('runFinal').textContent = e.content || ''; addRunEvent({type:'final',actor:'A',content:'Final answer produced.'}); }
+    else if (e.type === 'judge') renderJudge(e.result);
+    else if (e.type === 'result') renderRunResult(e.result);
+  }
+
+  function renderRunResult(r) {
+    if (!r) return;
+    $('runFinal').classList.remove('empty-state'); $('runFinal').textContent = r.final_answer || '';
+    renderJudge(r.judge);
+    const t = r.telemetry || {};
+    const boxes = $('runTelemetry').children;
+    boxes[0].querySelector('strong').textContent = fmtNum(t.calls);
+    boxes[1].querySelector('strong').textContent = fmtNum(t.total_tokens ?? (num(t.prompt_tokens)+num(t.completion_tokens)));
+    boxes[2].querySelector('strong').textContent = fmtMs(t.elapsed_ms);
+    boxes[3].querySelector('strong').textContent = r.judge?.overall ?? '—';
+    for (const role of r.recruited || []) { const el=document.querySelector(`#brainMap .region[data-role="${CSS.escape(role)}"]`); if(el) el.classList.add('recruited'); }
+    document.querySelectorAll('#brainMap .region').forEach(el => { el.classList.remove('active'); el.querySelector('.region-state').textContent = el.classList.contains('recruited') ? 'recruited' : (el.classList.contains('persistent') ? 'complete':'asleep'); });
+  }
+
+  function startTimer() {
+    state.runStartedAt = performance.now(); clearInterval(state.timerHandle);
+    state.timerHandle = setInterval(() => { $('runTimer').textContent = `${((performance.now()-state.runStartedAt)/1000).toFixed(1)}s`; }, 100);
+  }
+  function stopTimer() { clearInterval(state.timerHandle); state.timerHandle=null; }
+
+  async function runOne() {
+    clearError('runError');
+    const task = $('runTask').value.trim(); if (!task) return showError('runError', new Error('Enter a task first.'));
+    let messages; try { messages = parseMessages('runMessages'); } catch(e) { return showError('runError', e); }
+    $('runEvents').className='event-stream empty-state'; $('runEvents').textContent='Connecting…'; $('eventCount').textContent='0 events';
+    $('runFinal').className='final-answer empty-state'; $('runFinal').textContent='Waiting for convergence…'; $('judgeCard').classList.add('hidden'); resetBrain();
+    $('runBtn').disabled=true; $('stopRunBtn').disabled=false; state.runAbort = new AbortController(); startTimer();
+    const body = {task, messages, architecture:$('runArchitecture').value, role_models:roleModels(), judge:$('runJudge').value==='true', fuse_max_calls:num($('runFuseCalls').value,40), fuse_wall_seconds:num($('runFuseSeconds').value,300), stream:true};
+    try { await postSSE('/v1/dual-lobe/playground/run', body, state.runAbort.signal, applyRunEvent); }
+    catch(e) { if (e.name !== 'AbortError') showError('runError', e); }
+    finally { $('runBtn').disabled=false; $('stopRunBtn').disabled=true; state.runAbort=null; stopTimer(); }
+  }
+
+  function selectedChecks(containerId) { return [...$(containerId).querySelectorAll('input[type=checkbox]:checked')].map(x=>x.value); }
+  function laneFor(name) {
+    let lane = document.querySelector(`#compareLanes .lane[data-variant="${CSS.escape(name)}"]`);
+    if (!lane) {
+      if ($('compareLanes').classList.contains('empty-state')) { $('compareLanes').classList.remove('empty-state'); $('compareLanes').textContent=''; }
+      lane=document.createElement('div'); lane.className='lane'; lane.dataset.variant=name; lane.innerHTML=`<div class="section-head"><h3>${esc(name)}</h3><span class="pill neutral">running</span></div><div class="lane-events"></div><div class="lane-final"></div>`; $('compareLanes').appendChild(lane);
+    }
+    return lane;
+  }
+  function applyCompareEvent(e) {
+    if (e.type === 'comparison_result') return renderComparison(e.result);
+    if (!e.variant) return;
+    const lane=laneFor(e.variant); const events=lane.querySelector('.lane-events');
+    if (['participant_move','completion_proposed','completion_confirmed','completion_reopened','final','circuit_breaker'].includes(e.type)) {
+      const row=document.createElement('div'); row.className='lane-event'; row.innerHTML=`<strong>${esc(e.actor || e.type)}</strong> <span class="muted">${esc(e.type)}</span><br>${esc(eventMessage(e)).slice(0,900)}`; events.appendChild(row); events.scrollTop=events.scrollHeight;
+    }
+  }
+  function renderComparison(r) {
+    const results=r?.results || {};
+    for (const [name,item] of Object.en
