@@ -1,34 +1,61 @@
-# Cognitive Architecture Playground Web UI
+# Dual-Lobe Website / Live Lab
 
-A deployable browser playground for the Dual-Lobe cognitive architecture experiment API.
+This is the deployable website for the current Dual-Lobe release candidate.
 
-## What it includes
+The site intentionally features **one model architecture only**: the self-splitting Dual-Lobe design.
 
-- **Live Run**: watch Cortex A, Cortex B, ACC/Salience, and Evidence Cortex cooperate in real time.
-- **Compare**: run the same task through multiple architectures and watch each lane live.
-- **Benchmark**: run a JSON suite repeatedly and view aggregate judge score, errors, calls, latency, tokens, and evidence-discipline score.
-- **Brain activity map**: persistent cortex vs dynamically recruited specialist regions.
-- **Secure proxy mode**: included Node server injects your backend API key server-side, so the browser never needs the privileged key.
+## Model shown on the site
+
+```text
+task
+  ↓
+Lobe A receives the full task
+  ↓
+valid split?
+  ├─ no  → A completes single-lane → B verifies
+  └─ yes
+       ├─ A half ───────────┐
+       └─ B half ───────────┤  concurrent
+                            ↓
+                   B reconvergence
+             merge + repair + verify
+                            ↓
+                  canonical answer
+```
+
+B's finalizer uses the hardened verifier protocol from the release runtime. The website does not present legacy Gated, Non-Split, dedicated-Splitter, ACC, Evidence-Cortex, or other experimental architectures as products.
+
+## Website sections
+
+- **Live Run** — submit a task and watch Lobe A / Lobe B execution events.
+- **Architecture** — explains self-splitting, parallel execution, B reconvergence, proof-aware verification, and canonical loop state.
+- **Benchmark** — stress the single Dual-Lobe model over a JSON case suite and inspect latency, calls, tokens, errors, evidence discipline, and judge output.
 
 ## Required backend
 
-The backend must expose the Cognitive Architecture Playground endpoints:
+The current frontend expects:
 
 - `GET /v1/dual-lobe/playground/architectures`
 - `POST /v1/dual-lobe/playground/run`
-- `POST /v1/dual-lobe/playground/compare`
 - `POST /v1/dual-lobe/playground/benchmark`
 
-The UI expects the streaming forms to use SSE (`data: {json}\n\n`) exactly like the playground overlay already does.
+The architecture discovery endpoint is retained only for runtime compatibility. The UI automatically selects the current Dual-Lobe/Self-Split architecture and does not expose architecture selection to visitors.
 
-## Recommended production deployment
+Streaming run/benchmark responses use SSE:
 
-Run this frontend/server separately from the inference proxy.
+```text
+data: {json}
+
+```
+
+## Production deployment
+
+Run the website/server separately from the inference runtime.
 
 Environment variables:
 
 ```bash
-DUAL_LOBE_BACKEND_URL=https://your-dual-lobe-proxy.example.com
+DUAL_LOBE_BACKEND_URL=https://your-dual-lobe-runtime.example.com
 DUAL_LOBE_API_KEY=your_inference_invoke_key
 PORT=8080
 ```
@@ -39,44 +66,26 @@ Then:
 npm start
 ```
 
-There are **no npm dependencies**; Node 20+ is sufficient.
-
-Open `http://localhost:8080`.
+There are no npm runtime dependencies; Node 20+ is sufficient.
 
 ### Docker
 
 ```bash
-docker build -t cognitive-playground .
+docker build -t dual-lobe-site .
 docker run --rm -p 8080:8080 \
-  -e DUAL_LOBE_BACKEND_URL=https://your-proxy.example.com \
+  -e DUAL_LOBE_BACKEND_URL=https://your-runtime.example.com \
   -e DUAL_LOBE_API_KEY=... \
-  cognitive-playground
+  dual-lobe-site
 ```
 
-## Put it on your existing website
+## Security
 
-Three practical options:
+- Never place a production API key in `config.js`.
+- Use the included server proxy for public deployment.
+- Keep inference credentials server-side.
+- Put authentication, quotas, rate limits, and cost controls in front of public execution.
+- UI emergency limits are not a security boundary.
 
-1. **Subdomain (recommended)**: deploy this app at `lab.your-domain.com`.
-2. **Path proxy**: reverse proxy `/playground/` to this Node app and keep `/api/` handled by its server.
-3. **Static embed**: copy `index.html`, `app.js`, `styles.css`, and `config.js` into your frontend, but then route `/api/v1/dual-lobe/playground/*` through your own server-side proxy. Do not expose a privileged Dual-Lobe bearer token in public JS.
+## Release status
 
-## Direct-browser development mode
-
-You may set `apiBase` in `config.js` to a backend URL and enter a bearer token in the Connection dialog. This is useful for private testing only. The token is stored in `sessionStorage`, not localStorage.
-
-For public production, prefer same-origin `/api` proxy mode.
-
-## Security notes
-
-- Do not put production API keys in `config.js`.
-- Scope the backend key to the minimum required permission (`inference:invoke`).
-- Put authentication in front of this playground if it can launch costly model runs.
-- Apply backend rate/concurrency/cost limits; the UI controls are not a security boundary.
-- If the playground is public-facing, add application-level user authentication and per-user quotas before launch.
-
-## UI behavior
-
-`Run` renders semantic cognitive events as they arrive. `Compare` uses the backend's `variant` tag to create one live lane per architecture. `Benchmark` uses case/variant tags and renders the returned aggregate leaderboard.
-
-Normal completion remains decision-driven in the backend. Emergency `fuse_max_calls` / `fuse_wall_seconds` are exposed only as circuit breakers.
+The website currently labels Dual-Lobe as a **release candidate** while model testing is ongoing. The design is intentionally singular so the site can transition directly from testing to release without becoming a catalog of obsolete experimental variants.
