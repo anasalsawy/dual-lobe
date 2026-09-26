@@ -5,5 +5,5 @@ window.PLAYGROUND_CONFIG = {
   // Leave empty when using server.mjs. Direct mode can optionally set a token
   // at runtime from the UI; do not hard-code production secrets here.
   bearerToken: '',
-  title: 'Cognitive Architecture Playground'
+  title: 'One model. Two lobes. One verified answer.'
 };
