@@ -79,15 +79,19 @@
     return state.architectures.find(a => a.id === id)?.description || id;
   }
 
+  function activeArchitectureId() {
+    const preferred = ['split', 'self_split', 'self-split', 'dual_lobe', 'dual-lobe'];
+    for (const id of preferred) {
+      if (state.architectures.some(a => a.id === id)) return id;
+    }
+    return state.architectures[0]?.id || 'split';
+  }
+
   function renderArchitectureControls() {
-    const select = $('runArchitecture');
-    const current = select.value;
-    select.innerHTML = state.architectures.map(a => `<option value="${esc(a.id)}">${esc(a.id)}</option>`).join('');
-    if (current && state.architectures.some(a => a.id === current)) select.value = current;
-    else if (state.architectures.some(a => a.id === 'adaptive_brain')) select.value = 'adaptive_brain';
-    else if (state.architectures[0]) select.value = state.architectures[0].id;
-    for (const target of ['compareArchitectureChecks','benchmarkArchitectureChecks']) {
-      $(target).innerHTML = state.architectures.map(a => `<label class="check-chip" title="${esc(a.description)}"><input type="checkbox" value="${esc(a.id)}" checked> ${esc(a.id)}</label>`).join('');
+    const target = $('benchmarkArchitectureChecks');
+    if (target) {
+      const id = activeArchitectureId();
+      target.innerHTML = `<label class="check-chip"><input type="checkbox" value="${esc(id)}" checked> Dual-Lobe</label>`;
     }
   }
 
@@ -95,7 +99,7 @@
     const data = await fetchJson('/v1/dual-lobe/playground/architectures');
     state.architectures = data.architectures || [];
     renderArchitectureControls();
-    setConnection(true, `${state.architectures.length} architectures`);
+    setConnection(true, state.architectures.length ? 'Dual-Lobe connected' : 'Connected');
   }
 
   function parseMessages(id) {
@@ -108,7 +112,7 @@
 
   function roleModels(prefix='run') {
     const mapping = {};
-    const entries = [['A', `${prefix}ModelA`],['B',`${prefix}ModelB`],['ACC',`${prefix}ModelACC`],['EVIDENCE',`${prefix}ModelEvidence`],['JUDGE',`${prefix}ModelJudge`]];
+    const entries = [['A', `${prefix}ModelA`],['B',`${prefix}ModelB`],['JUDGE',`${prefix}ModelJudge`]];
     for (const [role,id] of entries) if ($(id)?.value.trim()) mapping[role] = $(id).value.trim();
     return mapping;
   }
@@ -119,10 +123,10 @@
   function activateRole(role, stateText='active') {
     document.querySelectorAll('#brainMap .region').forEach(el => el.classList.remove('active'));
     const el = document.querySelector(`#brainMap .region[data-role="${CSS.escape(role || '')}"]`);
-    if (el) { el.classList.add('active'); el.querySelector('.region-state').textContent = stateText; if (role==='ACC'||role==='EVIDENCE') el.classList.add('recruited'); }
+    if (el) { el.classList.add('active'); el.querySelector('.region-state').textContent = stateText; }
   }
 
-  function actorClass(actor) { return ['A','B','ACC','EVIDENCE'].includes(actor) ? `actor-${actor}` : 'system'; }
+  function actorClass(actor) { return ['A','B'].includes(actor) ? `actor-${actor}` : 'system'; }
   function eventMessage(e) {
     return e.message || e.content || e.basis || e.reason || (e.result ? JSON.stringify(e.result, null, 2) : '');
   }
@@ -165,8 +169,7 @@
     boxes[1].querySelector('strong').textContent = fmtNum(t.total_tokens ?? (num(t.prompt_tokens)+num(t.completion_tokens)));
     boxes[2].querySelector('strong').textContent = fmtMs(t.elapsed_ms);
     boxes[3].querySelector('strong').textContent = r.judge?.overall ?? '—';
-    for (const role of r.recruited || []) { const el=document.querySelector(`#brainMap .region[data-role="${CSS.escape(role)}"]`); if(el) el.classList.add('recruited'); }
-    document.querySelectorAll('#brainMap .region').forEach(el => { el.classList.remove('active'); el.querySelector('.region-state').textContent = el.classList.contains('recruited') ? 'recruited' : (el.classList.contains('persistent') ? 'complete':'asleep'); });
+    document.querySelectorAll('#brainMap .region').forEach(el => { el.classList.remove('active'); el.querySelector('.region-state').textContent = 'complete'; });
   }
 
   function startTimer() {
@@ -182,7 +185,7 @@
     $('runEvents').className='event-stream empty-state'; $('runEvents').textContent='Connecting…'; $('eventCount').textContent='0 events';
     $('runFinal').className='final-answer empty-state'; $('runFinal').textContent='Waiting for convergence…'; $('judgeCard').classList.add('hidden'); resetBrain();
     $('runBtn').disabled=true; $('stopRunBtn').disabled=false; state.runAbort = new AbortController(); startTimer();
-    const body = {task, messages, architecture:$('runArchitecture').value, role_models:roleModels(), judge:$('runJudge').value==='true', fuse_max_calls:num($('runFuseCalls').value,40), fuse_wall_seconds:num($('runFuseSeconds').value,300), stream:true};
+    const body = {task, messages, architecture:activeArchitectureId(), role_models:roleModels(), judge:$('runJudge').value==='true', fuse_max_calls:num($('runFuseCalls').value,40), fuse_wall_seconds:num($('runFuseSeconds').value,300), stream:true};
     try { await postSSE('/v1/dual-lobe/playground/run', body, state.runAbort.signal, applyRunEvent); }
     catch(e) { if (e.name !== 'AbortError') showError('runError', e); }
     finally { $('runBtn').disabled=false; $('stopRunBtn').disabled=true; state.runAbort=null; stopTimer(); }
@@ -249,7 +252,7 @@
   }
   async function runBenchmark() {
     clearError('benchmarkError'); let cases; try { cases=JSON.parse($('benchmarkCases').value); if(!Array.isArray(cases)||!cases.length)throw new Error('Cases must be a non-empty JSON array.'); } catch(e){return showError('benchmarkError',e)}
-    const architectures=selectedChecks('benchmarkArchitectureChecks'); if(!architectures.length)return showError('benchmarkError',new Error('Select at least one architecture.'));
+    const architectures=[activeArchitectureId()];
     $('benchmarkLive').className='event-stream empty-state';$('benchmarkLive').textContent='Starting benchmark…';$('benchmarkLeaderboard').className='empty-state';$('benchmarkLeaderboard').textContent='Waiting for aggregate results…';$('benchmarkProgress').textContent='running';$('benchmarkProgress').className='pill neutral';
     $('benchmarkBtn').disabled=true;$('stopBenchmarkBtn').disabled=false;state.benchmarkAbort=new AbortController();
     const body={cases,architectures,repeat:num($('benchmarkRepeat').value,1),judge:$('benchmarkJudge').value==='true',role_models:{},fuse_max_calls:40,fuse_wall_seconds:300,stream:true};
@@ -260,12 +263,10 @@
   function bindSettings(){const d=$('settingsDialog');$('settingsBtn').addEventListener('click',()=>{$('apiBaseInput').value=state.apiBase;$('tokenInput').value=state.token;clearError('settingsError');d.showModal();});$('saveSettingsBtn').addEventListener('click',()=>{state.apiBase=$('apiBaseInput').value.trim()||'/api';state.token=$('tokenInput').value.trim();sessionStorage.setItem('dl_api_base',state.apiBase);sessionStorage.setItem('dl_token',state.token);d.close();loadArchitectures().catch(e=>setConnection(false,e.message));});$('testConnectionBtn').addEventListener('click',async()=>{const oldBase=state.apiBase,oldToken=state.token;state.apiBase=$('apiBaseInput').value.trim()||'/api';state.token=$('tokenInput').value.trim();try{await loadArchitectures();clearError('settingsError')}catch(e){showError('settingsError',e)}finally{state.apiBase=oldBase;state.token=oldToken}});}
 
   function init() {
-    $('appTitle').textContent = cfg.title || 'Cognitive Architecture Playground';
+    $('appTitle').textContent = cfg.title || 'One model. Two lobes. One verified answer.';
     $('benchmarkCases').value = benchmarkDefault();
     bindTabs(); bindSettings();
-    $('refreshArchitecturesBtn').addEventListener('click',()=>loadArchitectures().catch(e=>setConnection(false,e.message)));
-    $('runBtn').addEventListener('click',runOne); $('stopRunBtn').addEventListener('click',()=>state.runAbort?.abort()); $('clearRunBtn').addEventListener('click',()=>{$('runEvents').className='event-stream empty-state';$('runEvents').textContent='Start a run to watch A, B, ACC, and Evidence cooperate.';$('runFinal').className='final-answer empty-state';$('runFinal').textContent='The converged final answer will appear here.';$('judgeCard').classList.add('hidden');resetBrain();});
-    $('compareBtn').addEventListener('click',runCompare); $('stopCompareBtn').addEventListener('click',()=>state.compareAbort?.abort());
+    $('runBtn').addEventListener('click',runOne); $('stopRunBtn').addEventListener('click',()=>state.runAbort?.abort()); $('clearRunBtn').addEventListener('click',()=>{$('runEvents').className='event-stream empty-state';$('runEvents').textContent='Start a run to watch A split work with B, then reconverge through verification.';$('runFinal').className='final-answer empty-state';$('runFinal').textContent='The converged final answer will appear here.';$('judgeCard').classList.add('hidden');resetBrain();});
     $('benchmarkBtn').addEventListener('click',runBenchmark); $('stopBenchmarkBtn').addEventListener('click',()=>state.benchmarkAbort?.abort());
     loadArchitectures().catch(e=>setConnection(false,e.message));
   }
