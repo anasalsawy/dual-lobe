@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0d12" />
-  <title>Cognitive Architecture Playground</title>
+  <title>Dual-Lobe — Parallel Intelligence with Verification</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <div class="eyebrow">DUAL-LOBE LAB</div>
-        <h1 id="appTitle">Cognitive Architecture Playground</h1>
-        <p class="subtitle">Put competing cognitive architectures on the same task and watch them think, recruit specialists, converge, and finish.</p>
+        <div class="eyebrow">DUAL-LOBE</div>
+        <h1 id="appTitle">One model. Two lobes. One verified answer.</h1>
+        <p class="subtitle">A self-splitting inference architecture: Lobe A finds a valid parallel split, A and B execute independently, then B reconverges the work into one repaired, verified canonical answer.</p>
       </div>
       <div class="status-cluster">
         <span id="connectionPill" class="pill neutral">Not connected</span>
@@ -21,9 +21,9 @@
       </div>
     </header>
 
-    <nav class="tabs" aria-label="Playground mode">
+    <nav class="tabs" aria-label="Dual-Lobe">
       <button class="tab active" data-tab="run">Live Run</button>
-      <button class="tab" data-tab="compare">Compare</button>
+      <button class="tab" data-tab="architecture">Architecture</button>
       <button class="tab" data-tab="benchmark">Benchmark</button>
     </nav>
 
@@ -32,26 +32,23 @@
         <div class="layout two-col">
           <section class="panel control-panel">
             <div class="section-head">
-              <div><span class="kicker">TASK</span><h2>Run one brain</h2></div>
-              <button id="refreshArchitecturesBtn" class="btn ghost small">Refresh architectures</button>
+              <div><span class="kicker">TASK</span><h2>Run Dual-Lobe</h2></div>
+              <span id="modelBadge" class="pill good">Dual-Lobe</span>
             </div>
             <label class="field-label" for="runTask">Task</label>
             <textarea id="runTask" class="task-input" rows="9" placeholder="Diagnose this failure, explain the root cause, and propose the safest fix..."></textarea>
 
-            <div class="form-grid">
-              <label class="field"><span>Architecture</span><select id="runArchitecture"></select></label>
-              <label class="field"><span>Judge</span><select id="runJudge"><option value="true">On</option><option value="false">Off</option></select></label>
+            <div class="form-grid single-model-grid">
+              <label class="field"><span>Verification</span><select id="runJudge"><option value="true">On</option><option value="false">Off</option></select></label>
+              <div class="model-lock"><span>Model</span><strong>Dual-Lobe</strong><small>single release candidate</small></div>
             </div>
 
             <details class="advanced">
               <summary>Models, evidence & emergency fuses</summary>
               <div class="advanced-body">
                 <div class="role-grid">
-                  <label class="field"><span>Cortex A</span><input id="runModelA" placeholder="lobe-a" /></label>
-                  <label class="field"><span>Cortex B</span><input id="runModelB" placeholder="lobe-b" /></label>
-                  <label class="field"><span>ACC</span><input id="runModelACC" placeholder="lobe-b" /></label>
-                  <label class="field"><span>Evidence</span><input id="runModelEvidence" placeholder="lobe-b" /></label>
-                  <label class="field"><span>Judge</span><input id="runModelJudge" placeholder="lobe-b" /></label>
+                  <label class="field"><span>Lobe A model</span><input id="runModelA" placeholder="worker / splitter" /></label>
+                  <label class="field"><span>Lobe B model</span><input id="runModelB" placeholder="worker / finalizer / verifier" /></label>
                 </div>
                 <label class="field"><span>Source messages / evidence (JSON array)</span><textarea id="runMessages" rows="6" class="mono" placeholder='[{"role":"user","content":"log or source material"}]'></textarea></label>
                 <div class="form-grid">
@@ -74,12 +71,11 @@
               <div><span class="kicker">LIVE COGNITION</span><h2>Brain activity</h2></div>
               <span id="runTimer" class="mono muted">0.0s</span>
             </div>
-            <div id="brainMap" class="brain-map" aria-label="Active cognitive regions">
-              <div class="region persistent" data-role="A"><span class="region-name">Cortex A</span><span class="region-state">idle</span></div>
-              <div class="callosum"><span>Corpus Callosum</span></div>
-              <div class="region persistent" data-role="B"><span class="region-name">Cortex B</span><span class="region-state">idle</span></div>
-              <div class="region specialist" data-role="ACC"><span class="region-name">ACC / Salience</span><span class="region-state">asleep</span></div>
-              <div class="region specialist" data-role="EVIDENCE"><span class="region-name">Evidence Cortex</span><span class="region-state">asleep</span></div>
+            <div id="brainMap" class="brain-map single-model-map" aria-label="Dual-Lobe execution">
+              <div class="region persistent" data-role="A"><span class="region-name">Lobe A</span><span class="region-state">route + work</span></div>
+              <div class="callosum"><span>parallel split</span></div>
+              <div class="region persistent" data-role="B"><span class="region-name">Lobe B</span><span class="region-state">work + verify</span></div>
+              <div class="merge-node"><span class="region-name">Reconvergence</span><span class="region-state">merge · repair · verify</span></div>
             </div>
             <div class="telemetry" id="runTelemetry">
               <div><span>Calls</span><strong>—</strong></div><div><span>Tokens</span><strong>—</strong></div><div><span>Latency</span><strong>—</strong></div><div><span>Judge</span><strong>—</strong></div>
@@ -90,7 +86,7 @@
         <div class="layout transcript-grid">
           <section class="panel">
             <div class="section-head"><div><span class="kicker">EVENT LEDGER</span><h2>Live cooperation</h2></div><span id="eventCount" class="pill neutral">0 events</span></div>
-            <div id="runEvents" class="event-stream empty-state">Start a run to watch A, B, ACC, and Evidence cooperate.</div>
+            <div id="runEvents" class="event-stream empty-state">Start a run to watch A split work with B, then reconverge through verification.</div>
           </section>
           <section class="panel">
             <div class="section-head"><div><span class="kicker">OUTPUT</span><h2>Final answer</h2></div></div>
@@ -100,30 +96,59 @@
         </div>
       </section>
 
-      <section id="panel-compare" class="tab-panel">
-        <div class="panel control-panel compact">
-          <div class="section-head"><div><span class="kicker">HEAD-TO-HEAD</span><h2>Same task, different brains</h2></div></div>
-          <textarea id="compareTask" class="task-input" rows="6" placeholder="Give every architecture the exact same task..."></textarea>
-          <div id="compareArchitectureChecks" class="check-grid"></div>
-          <div class="actions"><button id="compareBtn" class="btn primary">Run comparison</button><button id="stopCompareBtn" class="btn danger" disabled>Stop</button></div>
-          <div id="compareError" class="error-box hidden"></div>
+      <section id="panel-architecture" class="tab-panel">
+        <section class="architecture-hero panel">
+          <div>
+            <span class="kicker">THE MODEL</span>
+            <h2>Self-splitting Dual-Lobe</h2>
+            <p class="architecture-copy">One inference architecture, not a catalog of variants. A owns routing and one work half. When a valid independent split exists, B executes the peer half concurrently. Both results reconverge at B, which merges, repairs, verifies, grades the split, and emits one canonical answer.</p>
+          </div>
+          <span class="pill good">release candidate</span>
+        </section>
+
+        <div class="architecture-flow">
+          <div class="flow-card"><span class="step">01</span><strong>A receives the full task</strong><p>A searches for a substantial two-way split that can actually save wall-clock time.</p></div>
+          <div class="flow-card"><span class="step">02</span><strong>A + B execute in parallel</strong><p>A keeps one independent half. B receives the other through the split channel. Neither waits for the other's intermediate reasoning.</p></div>
+          <div class="flow-card"><span class="step">03</span><strong>B reconverges</strong><p>B receives both completed halves, preserves useful work, removes duplication, resolves contradictions, and repairs obvious deficiencies.</p></div>
+          <div class="flow-card"><span class="step">04</span><strong>Verification before emission</strong><p>The full verification protocol checks unsupported claims, action/tool claims, provenance, memory evidence, missing proof, and task drift before the canonical answer is emitted.</p></div>
         </div>
-        <section class="panel">
-          <div class="section-head"><div><span class="kicker">RACE VIEW</span><h2>Live architecture lanes</h2></div></div>
-          <div id="compareLanes" class="lane-grid empty-state">Choose architectures and start a comparison.</div>
-        </section>
-        <section class="panel">
-          <div class="section-head"><div><span class="kicker">RESULT</span><h2>Leaderboard</h2></div><span class="muted small-text">Judge score is a screening signal, not truth.</span></div>
-          <div id="compareLeaderboard" class="empty-state">No comparison yet.</div>
-        </section>
+
+        <div class="layout two-col architecture-details">
+          <section class="panel">
+            <span class="kicker">ANTI-DECEPTION</span>
+            <h2>Proof-aware verification</h2>
+            <ul class="feature-list">
+              <li>GREEN means no deception detected — never “verified truth.”</li>
+              <li>Unresolved missing, unverified, or proof requests cannot remain GREEN.</li>
+              <li>Worker text cannot corroborate itself.</li>
+              <li>Tool invocation is not proof of the claimed result.</li>
+              <li>Artifact claims require artifact evidence when available.</li>
+              <li>Malformed verifier output fails closed.</li>
+            </ul>
+          </section>
+          <section class="panel">
+            <span class="kicker">LOOP MODE</span>
+            <h2>One canonical state per cycle</h2>
+            <div class="loop-diagram mono">state N
+  ↓
+A route
+  ├── A half ──┐
+  └── B half ──┤  parallel
+               ↓
+      B merge + repair + verify
+               ↓
+          state N+1</div>
+            <p class="hint">The next cycle receives the B-finalized canonical state. The lobes never persist as divergent branches.</p>
+          </section>
+        </div>
       </section>
 
       <section id="panel-benchmark" class="tab-panel">
         <div class="layout two-col">
           <section class="panel control-panel">
-            <div class="section-head"><div><span class="kicker">BENCHMARK SUITE</span><h2>Stress the architectures</h2></div></div>
+            <div class="section-head"><div><span class="kicker">BENCHMARK SUITE</span><h2>Stress Dual-Lobe</h2></div></div>
             <label class="field"><span>Cases (JSON)</span><textarea id="benchmarkCases" rows="18" class="mono"></textarea></label>
-            <div id="benchmarkArchitectureChecks" class="check-grid"></div>
+            <div id="benchmarkArchitectureChecks" class="check-grid hidden"></div>
             <div class="form-grid"><label class="field"><span>Repeat</span><input id="benchmarkRepeat" type="number" min="1" max="5" value="1" /></label><label class="field"><span>Judge</span><select id="benchmarkJudge"><option value="true">On</option><option value="false">Off</option></select></label></div>
             <div class="actions"><button id="benchmarkBtn" class="btn primary">Run benchmark</button><button id="stopBenchmarkBtn" class="btn danger" disabled>Stop</button></div>
             <div id="benchmarkError" class="error-box hidden"></div>
@@ -134,7 +159,7 @@
           </section>
         </div>
         <section class="panel">
-          <div class="section-head"><div><span class="kicker">AGGREGATE</span><h2>Benchmark scoreboard</h2></div></div>
+          <div class="section-head"><div><span class="kicker">AGGREGATE</span><h2>Dual-Lobe benchmark results</h2></div></div>
           <div id="benchmarkLeaderboard" class="empty-state">No benchmark yet.</div>
         </section>
       </section>
