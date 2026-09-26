@@ -7,7 +7,6 @@
     token: sessionStorage.getItem('dl_token') || cfg.bearerToken || '',
     architectures: [],
     runAbort: null,
-    compareAbort: null,
     benchmarkAbort: null,
     runStartedAt: null,
     timerHandle: null,
@@ -73,10 +72,6 @@
     const pill = $('connectionPill');
     pill.textContent = text;
     pill.className = `pill ${ok ? 'good' : 'bad'}`;
-  }
-
-  function architectureDescription(id) {
-    return state.architectures.find(a => a.id === id)?.description || id;
   }
 
   function activeArchitectureId() {
@@ -154,7 +149,7 @@
     if (e.type === 'run_start') resetBrain();
     if (e.type === 'participant_move') addRunEvent(e);
     else if (e.type === 'completion_proposed' || e.type === 'completion_confirmed' || e.type === 'completion_reopened' || e.type === 'circuit_breaker') addRunEvent(e);
-    else if (e.type === 'final') { $('runFinal').classList.remove('empty-state'); $('runFinal').textContent = e.content || ''; addRunEvent({type:'final',actor:'A',content:'Final answer produced.'}); }
+    else if (e.type === 'final') { $('runFinal').classList.remove('empty-state'); $('runFinal').textContent = e.content || ''; addRunEvent({type:'final',actor:'B',content:'Canonical answer emitted after reconvergence and verification.'}); }
     else if (e.type === 'judge') renderJudge(e.result);
     else if (e.type === 'result') renderRunResult(e.result);
   }
@@ -191,44 +186,6 @@
     finally { $('runBtn').disabled=false; $('stopRunBtn').disabled=true; state.runAbort=null; stopTimer(); }
   }
 
-  function selectedChecks(containerId) { return [...$(containerId).querySelectorAll('input[type=checkbox]:checked')].map(x=>x.value); }
-  function laneFor(name) {
-    let lane = document.querySelector(`#compareLanes .lane[data-variant="${CSS.escape(name)}"]`);
-    if (!lane) {
-      if ($('compareLanes').classList.contains('empty-state')) { $('compareLanes').classList.remove('empty-state'); $('compareLanes').textContent=''; }
-      lane=document.createElement('div'); lane.className='lane'; lane.dataset.variant=name; lane.innerHTML=`<div class="section-head"><h3>${esc(name)}</h3><span class="pill neutral">running</span></div><div class="lane-events"></div><div class="lane-final"></div>`; $('compareLanes').appendChild(lane);
-    }
-    return lane;
-  }
-  function applyCompareEvent(e) {
-    if (e.type === 'comparison_result') return renderComparison(e.result);
-    if (!e.variant) return;
-    const lane=laneFor(e.variant); const events=lane.querySelector('.lane-events');
-    if (['participant_move','completion_proposed','completion_confirmed','completion_reopened','final','circuit_breaker'].includes(e.type)) {
-      const row=document.createElement('div'); row.className='lane-event'; row.innerHTML=`<strong>${esc(e.actor || e.type)}</strong> <span class="muted">${esc(e.type)}</span><br>${esc(eventMessage(e)).slice(0,900)}`; events.appendChild(row); events.scrollTop=events.scrollHeight;
-    }
-  }
-  function renderComparison(r) {
-    const results=r?.results || {};
-    for (const [name,item] of Object.entries(results)) {
-      const lane=laneFor(name); const pill=lane.querySelector('.pill');
-      if (item.error) { pill.textContent='error'; pill.className='pill bad'; lane.querySelector('.lane-final').textContent=item.error; }
-      else { pill.textContent=`${item.judge?.overall ?? '—'} / 10`; pill.className='pill good'; lane.querySelector('.lane-final').innerHTML=`<div class="hint">${fmtNum(item.telemetry?.calls)} calls · ${fmtMs(item.telemetry?.elapsed_ms)} · ${fmtNum(item.telemetry?.total_tokens)} tokens</div>`; }
-    }
-    const ranking=r?.leaderboard || Object.keys(results);
-    $('compareLeaderboard').classList.remove('empty-state');
-    $('compareLeaderboard').innerHTML=`<table class="leader-table"><thead><tr><th>Rank</th><th>Architecture</th><th>Judge</th><th>Calls</th><th>Latency</th><th>Tokens</th></tr></thead><tbody>${ranking.map((name,i)=>{const x=results[name]||{};return `<tr><td class="rank">#${i+1}</td><td title="${esc(architectureDescription(name))}">${esc(name)}</td><td>${esc(x.judge?.overall ?? '—')}</td><td>${fmtNum(x.telemetry?.calls)}</td><td>${fmtMs(x.telemetry?.elapsed_ms)}</td><td>${fmtNum(x.telemetry?.total_tokens)}</td></tr>`}).join('')}</tbody></table>`;
-  }
-
-  async function runCompare() {
-    clearError('compareError'); const task=$('compareTask').value.trim(); const architectures=selectedChecks('compareArchitectureChecks');
-    if (!task) return showError('compareError',new Error('Enter a comparison task.')); if (architectures.length<2) return showError('compareError',new Error('Select at least two architectures.'));
-    $('compareLanes').className='lane-grid empty-state'; $('compareLanes').textContent='Starting comparison…'; $('compareLeaderboard').className='empty-state'; $('compareLeaderboard').textContent='Waiting for results…';
-    $('compareBtn').disabled=true; $('stopCompareBtn').disabled=false; state.compareAbort=new AbortController();
-    try { await postSSE('/v1/dual-lobe/playground/compare',{task,messages:[],architectures,judge:true,stream:true},state.compareAbort.signal,applyCompareEvent); }
-    catch(e){if(e.name!=='AbortError')showError('compareError',e)}finally{$('compareBtn').disabled=false;$('stopCompareBtn').disabled=true;state.compareAbort=null}
-  }
-
   function benchmarkDefault() {
     return JSON.stringify([
       {id:'debug-1',task:'Diagnose a malformed tool-call history without guessing. Identify what evidence would distinguish producer corruption from proxy corruption.',messages:[]},
@@ -248,7 +205,7 @@
   function renderBenchmark(r) {
     const aggregate=r?.aggregate||{}; const ranking=r?.leaderboard||Object.keys(aggregate);
     $('benchmarkProgress').textContent='complete'; $('benchmarkProgress').className='pill good'; $('benchmarkLeaderboard').classList.remove('empty-state');
-    $('benchmarkLeaderboard').innerHTML=`<table class="leader-table"><thead><tr><th>Rank</th><th>Architecture</th><th>Judge mean</th><th>Error</th><th>Calls</th><th>Latency</th><th>Tokens</th><th>Evidence</th></tr></thead><tbody>${ranking.map((name,i)=>{const x=aggregate[name]||{};return `<tr><td class="rank">#${i+1}</td><td>${esc(name)}</td><td>${x.judge_overall_mean==null?'—':Number(x.judge_overall_mean).toFixed(2)}</td><td>${x.error_rate==null?'—':(100*x.error_rate).toFixed(1)+'%'}</td><td>${x.mean_calls==null?'—':Number(x.mean_calls).toFixed(1)}</td><td>${fmtMs(x.mean_latency_ms)}</td><td>${x.mean_total_tokens==null?'—':fmtNum(x.mean_total_tokens)}</td><td>${x.dimensions?.evidence_discipline==null?'—':Number(x.dimensions.evidence_discipline).toFixed(2)}</td></tr>`}).join('')}</tbody></table><p class="hint">${esc(r.warning||'')}</p>`;
+    $('benchmarkLeaderboard').innerHTML=`<table class="leader-table"><thead><tr><th>Rank</th><th>Model</th><th>Judge mean</th><th>Error</th><th>Calls</th><th>Latency</th><th>Tokens</th><th>Evidence</th></tr></thead><tbody>${ranking.map((name,i)=>{const x=aggregate[name]||{};return `<tr><td class="rank">#${i+1}</td><td>${esc(name)}</td><td>${x.judge_overall_mean==null?'—':Number(x.judge_overall_mean).toFixed(2)}</td><td>${x.error_rate==null?'—':(100*x.error_rate).toFixed(1)+'%'}</td><td>${x.mean_calls==null?'—':Number(x.mean_calls).toFixed(1)}</td><td>${fmtMs(x.mean_latency_ms)}</td><td>${x.mean_total_tokens==null?'—':fmtNum(x.mean_total_tokens)}</td><td>${x.dimensions?.evidence_discipline==null?'—':Number(x.dimensions.evidence_discipline).toFixed(2)}</td></tr>`}).join('')}</tbody></table><p class="hint">${esc(r.warning||'')}</p>`;
   }
   async function runBenchmark() {
     clearError('benchmarkError'); let cases; try { cases=JSON.parse($('benchmarkCases').value); if(!Array.isArray(cases)||!cases.length)throw new Error('Cases must be a non-empty JSON array.'); } catch(e){return showError('benchmarkError',e)}
